@@ -5,4 +5,8 @@ pkgs.mkShell {
       python-pkgs.pygame
     ]))
   ];
+
+  shellHook = ''
+    export PYTHONPATH="$PWD/src:$PYTHONPATH"
+  '';
 }
