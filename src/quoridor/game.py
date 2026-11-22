@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from quoridor.adjacency_matrix import AdjacencyMatrix
+from quoridor.graph import Graph
 from quoridor.astar import astar
 from quoridor.vec2 import Vec2
 
@@ -16,7 +16,7 @@ class Quoridor:
     def __init__(self, dim: Vec2 = BOARD_DIM):
         self.dim: Vec2 = dim
         self.turn: int = 0
-        self.adj_mat: AdjacencyMatrix = AdjacencyMatrix(self.dim)
+        self.graph: Graph = Graph(self.dim)
         
         self.player_positions: list[Vec2] = [
             Vec2(self.dim.x // 2, 0),
@@ -40,7 +40,7 @@ class Quoridor:
                 for dx, dy in neighbors:
                     nx, ny = x + dx, y + dy
                     if 0 <= nx < self.dim.x and 0 <= ny < self.dim.y:
-                        self.adj_mat.set_edge(curr, Vec2(nx, ny), True)
+                        self.graph.set_edge(curr, Vec2(nx, ny), True)
 
     def _wall_edges(self, anchor: Vec2, horizontal: bool) -> list[tuple[Vec2, Vec2]]:
         i, j = anchor.x, anchor.y
@@ -81,7 +81,7 @@ class Quoridor:
 
     def _all_players_have_path(self) -> bool:
         goals = [self.dim.y - 1, 0]
-        return all(astar(self.adj_mat, pos, goal) is not None for pos, goal in zip(self.player_positions, goals))
+        return all(astar(self.graph, pos, goal) is not None for pos, goal in zip(self.player_positions, goals))
 
     def place_wall(self, anchor: Vec2, horizontal: bool) -> bool:
         if self._wall_conflicts(anchor, horizontal):
@@ -89,11 +89,11 @@ class Quoridor:
 
         edges = self._wall_edges(anchor, horizontal)
         for a, b in edges:
-            self.adj_mat.set_edge(a, b, False)
+            self.graph.set_edge(a, b, False)
 
         if not self._all_players_have_path():
             for a, b in edges:
-                self.adj_mat.set_edge(a, b, True)
+                self.graph.set_edge(a, b, True)
             return False
 
         (self.horizontal_walls if horizontal else self.vertical_walls).append(anchor)

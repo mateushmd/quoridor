@@ -1,6 +1,6 @@
 import heapq
 
-from quoridor.adjacency_matrix import AdjacencyMatrix
+from quoridor.graph import Graph
 from quoridor.vec2 import Vec2
 
 class __Cell:
@@ -38,13 +38,13 @@ def __trace_path(cells: list[list[__Cell]], end_pos: Vec2) -> list[Vec2]:
     return path
 
 
-def astar(adj_mat: AdjacencyMatrix, start: Vec2, target_y: int) -> list[Vec2] | None:
+def astar(graph: Graph, start: Vec2, target_y: int) -> list[Vec2] | None:
     open: list[tuple[float, int, Vec2]] = []
 
     heapq.heappush(open, (0.0, id(start), start))
 
-    closed: list[list[bool]] = [[False for _ in range(0, adj_mat.dim().x)] for _ in range(0, adj_mat.dim().y)]
-    cells: list[list[__Cell]] = [[__Cell() for _ in range(0, adj_mat.dim().x)] for _ in range(0, adj_mat.dim().y)]
+    closed: list[list[bool]] = [[False for _ in range(0, graph.dim().x)] for _ in range(0, graph.dim().y)]
+    cells: list[list[__Cell]] = [[__Cell() for _ in range(0, graph.dim().x)] for _ in range(0, graph.dim().y)]
 
     cells[start.y][start.x].g = 0.0
     cells[start.y][start.x].h = 0.0
@@ -63,7 +63,7 @@ def astar(adj_mat: AdjacencyMatrix, start: Vec2, target_y: int) -> list[Vec2] | 
 
         for dx, dy in directions:
             next = Vec2(current.x + dx, current.y + dy)
-            if next != current and __is_valid(adj_mat.dim(), next) and adj_mat.has_edge(current, next) and not closed[next.y][next.x]:
+            if next != current and __is_valid(graph.dim(), next) and graph.has_edge(current, next) and not closed[next.y][next.x]:
                 gn = cells[current.y][current.x].g + 1.0
                 hn = __h(next, target_y)
 
