@@ -1,7 +1,7 @@
 import pygame
 from pygame.typing import Point
 
-from quoridor.game import Interactions, Quoridor
+from quoridor.game import Interactions, Quoridor, Result
 from quoridor.vec2 import Vec2
 
 CELLS_PER_ROW: int = 9
@@ -32,7 +32,12 @@ def main():
             Vec2(mouse_position[0] // TILE_SIZE, CELLS_PER_ROW - mouse_position[1] // TILE_SIZE - 1) 
         )
 
-        game.update(interactions)
+        result = game.update(interactions)
+
+        if result == Result.WHITE:
+            print("WHITE WON!")
+        elif result == Result.BLACK:
+            print("BLACK WON!")
 
         _ = screen.fill("green")
 
