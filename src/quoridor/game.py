@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass
 from enum import Enum
 
@@ -15,11 +16,6 @@ def lateral_movements(vec: Vec2) -> list[Vec2]:
     else:
         return [Vec2(1, 0), Vec2(-1, 0)]
 
-@dataclass
-class Interactions:
-    move: bool
-    place_wall: bool
-    cell: Vec2
 
 class Result(Enum):
     PLAYING = 0,
@@ -27,16 +23,22 @@ class Result(Enum):
     BLACK = 2
 
 class Quoridor:
+    _WHITE: bool = False
+    _BLACK: bool = True
+
     def __init__(self, dim: Vec2 = BOARD_DIM):
-        self.dim: Vec2 = dim
-        self._goals = [self.dim.y - 1, 0]
+        self._state: Result = Result.PLAYING
+        self._dim: Vec2 = dim
+        self._goals: list[int] = [self._dim.y - 2, 0]
         self.turn: bool = False
-        self.graph: Graph = Graph(self.dim)
+        self.graph: Graph = Graph(self._dim)
         
         self.player_positions: list[Vec2] = [
-            Vec2(self.dim.x // 2, 0),
-            Vec2(self.dim.x // 2, self.dim.y - 1)
+            Vec2(self._dim.x // 2, 0),
+            Vec2(self._dim.x // 2, self._dim.y - 1)
         ]
+
+        self._walls: list[int] = [10, 10]
 
         self.horizontal_walls: list[Vec2] = []
 
@@ -46,18 +48,20 @@ class Quoridor:
 
         self._origin_mouse_right: Vec2 | None = None
 
-        self._wait_flag = False
+        self._wait_flag: bool = False
+
+        self._current_legal_moves: list[Vec2] = []
 
     def _init_graph(self):
         neighbors = [(1, 0), (0, 1)]
 
-        for y in range(self.dim.y):
-            for x in range(self.dim.x):
+        for y in range(self._dim.y):
+            for x in range(self._dim.x):
                 curr = Vec2(x, y)
                 for dx, dy in neighbors:
                     nx, ny = x + dx, y + dy
-                    if 0 <= nx < self.dim.x and 0 <= ny < self.dim.y:
-                        self.graph.set_edge(curr, Vec2(nx, ny), True)
+                    if 0 <= nx < self._dim.x and 0 <= ny < self._dim.y:
+                        _ = self.graph.set_edge(curr, Vec2(nx, ny), True)
 
     def _wall_edges(self, anchor: Vec2, horizontal: bool) -> list[tuple[Vec2, Vec2]]:
         i, j = anchor.x, anchor.y
@@ -72,21 +76,9 @@ class Quoridor:
             (Vec2(i - 1, j), Vec2(i, j)),
         ]
 
-    def _wall_from_drag(self, a: Vec2, b: Vec2) -> tuple[Vec2, bool] | None:
-        d = b - a
-        if abs(d.x) + abs(d.y) != 1:
-            return None
-
-        if d.x != 0:
-            return Vec2(max(a.x, b.x), min(a.y + 1, self.dim.y - 1)), True
-
-        return Vec2(min(a.x + 1, self.dim.x - 1), max(a.y, b.y)), False
-
-    def _in_bounds(self, cell: Vec2) -> bool:
-        return 0 <= cell.x < self.dim.x and 0 <= cell.y < self.dim.y
 
     def _wall_conflicts(self, anchor: Vec2, horizontal: bool) -> bool:
-        if not (1 <= anchor.x < self.dim.x and 1 <= anchor.y < self.dim.y):
+        if not (1 <= anchor.x < self._dim.x and 1 <= anchor.y < self._dim.y):
             return True
 
         if anchor in self.horizontal_walls or anchor in self.vertical_walls:
@@ -130,9 +122,22 @@ class Quoridor:
 
         return legal_moves
 
+    def get_state(self) -> Result:
+        return self._state
+
+    def get_dim(self) -> Vec2:
+        return self._dim
+
+    def get_current_legal_moves(self) -> list[Vec2]:
+        return copy.deepcopy(self._current_legal_moves)
+
+    def in_bounds(self, cell: Vec2) -> bool:
+        return 0 <= cell.x < self._dim.x and 0 <= cell.y < self._dim.y
 
     def place_wall(self, anchor: Vec2, horizontal: bool) -> bool:
-        if self._wall_conflicts(anchor, horizontal):
+        player_i = int(self.turn)
+
+        if self._state != Result.PLAYING or self._walls[player_i] <= 0 or self._wall_conflicts(anchor, horizontal):
             return False
 
         edges = self._wall_edges(anchor, horizontal)
@@ -145,31 +150,31 @@ class Quoridor:
             return False
 
         (self.horizontal_walls if horizontal else self.vertical_walls).append(anchor)
+
+        self._walls[player_i] = self._walls[player_i] - 1 
+
+        self.turn = not self.turn
+
         return True
 
-    def update(self, interactions: Interactions) -> Result:
-        if (not self._wait_flag and interactions.move and 
-            interactions.cell not in self.player_positions and
-            interactions.cell in self._get_legal_moves(self.turn)):
-            self.player_positions[int(self.turn)] = interactions.cell
-            
-            if self.player_positions[int(self.turn)].y == self._goals[int(self.turn)]:
-                if not self.turn:
-                    return Result.WHITE
-                else:
-                    return Result.BLACK
+    def move(self, legal_move_i: int) -> bool:
+        player_i = int(self.turn)
 
-            self.turn = not self.turn
-        elif interactions.place_wall:
-            if self._origin_mouse_right is None and self._in_bounds(interactions.cell):
-                self._origin_mouse_right = interactions.cell
+        if self._state != Result.PLAYING or legal_move_i < 0 or legal_move_i >= len(self._current_legal_moves):
+            return False
 
-        self._wait_flag = interactions.move
+        self.player_positions[player_i] = self._current_legal_moves[legal_move_i]
 
-        if not interactions.place_wall and self._origin_mouse_right is not None:
-            wall = self._wall_from_drag(self._origin_mouse_right, interactions.cell)
-            if wall is not None:
-                _ = self.place_wall(*wall)
-            self._origin_mouse_right = None
+        if self.player_positions[player_i].y == self._goals[player_i]:
+            if self.turn == self._WHITE:
+                self._state = Result.WHITE
+            elif self.turn == self._BLACK:
+                self._state = Result.BLACK
 
-        return Result.PLAYING
+        self.turn = not self.turn
+
+        self._current_legal_moves = self._get_legal_moves(self.turn)
+
+        return True
+
+
