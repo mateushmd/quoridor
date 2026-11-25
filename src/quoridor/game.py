@@ -29,8 +29,8 @@ class Quoridor:
     def __init__(self, dim: Vec2 = BOARD_DIM):
         self._state: Result = Result.PLAYING
         self._dim: Vec2 = dim
-        self._goals: list[int] = [self._dim.y - 2, 0]
-        self.turn: bool = False
+        self._goals: list[int] = [self._dim.y - 1, 0]
+        self._turn: bool = False
         self.graph: Graph = Graph(self._dim)
         
         self.player_positions: list[Vec2] = [
@@ -50,7 +50,7 @@ class Quoridor:
 
         self._wait_flag: bool = False
 
-        self._current_legal_moves: list[Vec2] = []
+        self._current_legal_moves: list[Vec2] = self._get_legal_moves(self._turn)
 
     def _init_graph(self):
         neighbors = [(1, 0), (0, 1)]
@@ -135,7 +135,7 @@ class Quoridor:
         return 0 <= cell.x < self._dim.x and 0 <= cell.y < self._dim.y
 
     def place_wall(self, anchor: Vec2, horizontal: bool) -> bool:
-        player_i = int(self.turn)
+        player_i = int(self._turn)
 
         if self._state != Result.PLAYING or self._walls[player_i] <= 0 or self._wall_conflicts(anchor, horizontal):
             return False
@@ -153,12 +153,12 @@ class Quoridor:
 
         self._walls[player_i] = self._walls[player_i] - 1 
 
-        self.turn = not self.turn
+        self._turn = not self._turn
 
         return True
 
     def move(self, legal_move_i: int) -> bool:
-        player_i = int(self.turn)
+        player_i = int(self._turn)
 
         if self._state != Result.PLAYING or legal_move_i < 0 or legal_move_i >= len(self._current_legal_moves):
             return False
@@ -166,14 +166,14 @@ class Quoridor:
         self.player_positions[player_i] = self._current_legal_moves[legal_move_i]
 
         if self.player_positions[player_i].y == self._goals[player_i]:
-            if self.turn == self._WHITE:
+            if self._turn == self._WHITE:
                 self._state = Result.WHITE
-            elif self.turn == self._BLACK:
+            elif self._turn == self._BLACK:
                 self._state = Result.BLACK
 
-        self.turn = not self.turn
+        self._turn = not self._turn
 
-        self._current_legal_moves = self._get_legal_moves(self.turn)
+        self._current_legal_moves = self._get_legal_moves(self._turn)
 
         return True
 
